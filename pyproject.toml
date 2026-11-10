@@ -63,6 +63,7 @@ eval = [
 [project.scripts]
 omnivoice-infer = "omnivoice.cli.infer:main"
 omnivoice-infer-batch = "omnivoice.cli.infer_batch:main"
+omnivoice-generate-dataset = "omnivoice.cli.generate_dataset:main"
 omnivoice-demo = "omnivoice.cli.demo:main"
 
 [project.urls]
