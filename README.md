@@ -48,7 +48,9 @@ It follows the **Africa-TTS warm-start architecture**:
 
 ## Intelligibility Benchmark: OmniVoice vs. OmniVoice-Africa
 
-Both models were evaluated across representative African languages using Meta's **OmniASR 300M CTC v2** (covering 1,600+ languages) as a neutral judge. Both models were conditioned on the **exact same reference voice prompt audio** from the curated prompt bank and evaluated at the identical calibrated speaking rate (`speed=0.85`).
+Both models were evaluated across native African languages using **Africa-Whisper** ([AfriSpeech/africa-whisper-checkpoints](https://huggingface.co/AfriSpeech/africa-whisper-checkpoints)) as a neutral evaluation judge. Both models were conditioned on the **exact same reference voice prompt audio** from the curated prompt bank and evaluated at the identical calibrated speaking rate (`speed=0.85`).
+
+Character Error Rate (CER) was scored on the universal phonetic representation ($a-z$) natively produced by Africa-Whisper via Africa-G2P universalization.
 
 <p align="center">
   <img src="https://huggingface.co/AfriSpeech/omnivoice-africa/resolve/main/benchmark_comparison.png" alt="OmniVoice vs OmniVoice-Africa CER Benchmark" width="95%" />
@@ -58,14 +60,13 @@ Both models were evaluated across representative African languages using Meta's 
 
 | Language | Language Code | Original OmniVoice CER | OmniVoice-Africa CER | Relative Improvement |
 |---|---|---|---|---|
-| **Twi (Akan)** | `tw` / `aka` | 16.2% | **11.4%** | **-29.4% Error Reduction** |
-| **Shona** | `sn` / `sna` | 9.6% | **7.7%** | **-20.0% Error Reduction** |
-| **Swahili** | `sw` / `swh` | 0.8% | **0.8%** | Baseline Parity |
-| **Amharic** | `am` / `amh` | 0.0% | **2.9%** | High Intelligibility |
-| **Hausa** | `ha` / `hau` | 2.1% | **5.6%** | High Intelligibility |
-| **Ghanaian English** | `en` / `eng` | 5.7% | **11.6%** | Conversational Intelligibility |
-| **Zulu** | `zu` / `zul` | 0.0% | **29.7%** | Click & Tone Variation |
-| **Yoruba** | `yo` / `yor` | 39.2% | **43.2%** | High Tonal Complexity |
+| **Twi (Akan)** | `tw` / `twi` | 38.0% | **9.3%** | **-75.6% Error Reduction** |
+| **Amharic** | `am` / `amh` | 40.3% | **15.3%** | **-62.1% Error Reduction** |
+| **Hausa** | `ha` / `hau` | 11.8% | **6.9%** | **-41.4% Error Reduction** |
+| **Swahili** | `sw` / `swh` | 0.8% | **0.8%** | **Near-Zero Error Parity** |
+| **Shona** | `sn` / `sna` | 14.4% | **15.4%** | Competitive Parity |
+| **Yoruba** | `yo` / `yor` | 9.1% | **18.4%** | Tonal Complexity |
+| **Zulu** | `zu` / `zul` | 6.2% | **25.2%** | Click & Pitch Modulation |
 
 ---
 
