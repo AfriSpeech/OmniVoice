@@ -47,6 +47,7 @@ import torch.distributed as dist
 import webdataset as wds
 
 from omnivoice.utils.audio import load_audio, load_audio_bytes
+from omnivoice.utils.lang_map import resolve_african_language
 from torch.utils.data import IterableDataset
 
 
@@ -382,13 +383,31 @@ class JsonlDatasetReader(IterableDataReader):
     def set_epoch(self, epoch: int):
         self.shuffle_seed = epoch
 
+    def _ensure_entry_fields(self, item: dict, idx: int) -> dict:
+        if not item.get("id"):
+            base = os.path.splitext(
+                os.path.basename(item.get("path") or item.get("audio_path") or "sample")
+            )[0]
+            start_ms = int(round(float(item.get("start", 0.0)) * 1000))
+            item["id"] = f"{item.get('subset', base)}_{start_ms}_{idx}"
+        if "text" not in item:
+            item["text"] = item.get("transcript_orig") or item.get("transcript", "")
+        if "language_id" not in item:
+            lang = item.get("iso") or item.get("language")
+            if lang:
+                item["language_id"] = resolve_african_language(str(lang))
+        else:
+            item["language_id"] = resolve_african_language(str(item["language_id"]))
+        return item
+
     def _read_lines(self) -> list[dict]:
         entries = []
         with open(self.jsonl_path, "r", encoding="utf-8") as f:
-            for line in f:
+            for idx, line in enumerate(f):
                 line = line.strip()
                 if line:
-                    entries.append(json.loads(line))
+                    item = json.loads(line)
+                    entries.append(self._ensure_entry_fields(item, idx))
         if self.shuffle:
             random.seed(self.shuffle_seed)
             random.shuffle(entries)
@@ -399,10 +418,11 @@ class JsonlDatasetReader(IterableDataReader):
 
     def _stream_lines(self):
         with open(self.jsonl_path, "r", encoding="utf-8") as f:
-            for line in f:
+            for idx, line in enumerate(f):
                 line = line.strip()
                 if line:
-                    yield json.loads(line)
+                    item = json.loads(line)
+                    yield self._ensure_entry_fields(item, idx)
 
     def __iter__(self):
         source = self._read_lines() if self.shuffle else self._stream_lines()
@@ -423,18 +443,30 @@ class JsonlDatasetReader(IterableDataReader):
             )
 
         for meta in source:
-            audio_path = meta.get("audio_path")
+            audio_path = meta.get("audio_path") or meta.get("path")
             if not audio_path or not os.path.exists(audio_path):
                 logging.warning(
                     f"Skipping {meta.get('id', '?')}: audio_path missing or not found"
                 )
                 continue
             try:
+                start = float(meta.get("start", 0.0))
+                duration = (
+                    float(meta["duration"])
+                    if "duration" in meta and meta["duration"] is not None
+                    else None
+                )
                 waveform = torch.from_numpy(
-                    load_audio(audio_path, self.sample_rate)
+                    load_audio(
+                        audio_path,
+                        self.sample_rate,
+                        start=start,
+                        duration=duration,
+                    )
                 )
                 if self.normalize_audio:
                     waveform = (waveform / (waveform.abs().max() + 1e-7)) * 0.9
+
                 meta["audio_duration"] = waveform.shape[1] / self.sample_rate
                 yield {"audio": waveform, "label": meta}
             except Exception as e:

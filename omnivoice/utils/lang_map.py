@@ -696,3 +696,71 @@ def lang_display_name(name: str) -> str:
     apostrophes and small words (de, del) that should stay lowercase.
     """
     return _TITLE_EXCEPTIONS.get(name, name.title())
+
+
+AFRICAN_LANGUAGE_MAP = {
+    # Akan / Twi
+    "twi": "tw", "tw": "tw", "akan": "tw", "ak": "tw",
+    # Hausa
+    "hausa": "ha", "ha": "ha", "hau": "ha",
+    # Yoruba
+    "yoruba": "yo", "yo": "yo", "yor": "yo",
+    # Igbo
+    "igbo": "ig", "ig": "ig", "ibo": "ig",
+    # Swahili
+    "swahili": "sw", "sw": "sw", "kiswahili": "sw", "swa": "sw", "swh": "sw",
+    # Zulu
+    "zulu": "zu", "zu": "zu", "zul": "zu",
+    # Amharic
+    "amharic": "am", "am": "am", "amh": "am",
+    # Luganda
+    "luganda": "lg", "lg": "lg", "lug": "lg", "ganda": "lg",
+    # Kinyarwanda
+    "kinyarwanda": "rw", "rw": "rw", "kin": "rw",
+    # Somali
+    "somali": "so", "so": "so", "som": "so",
+    # Lingala
+    "lingala": "ln", "ln": "ln", "lin": "ln",
+    # Wolof
+    "wolof": "wo", "wo": "wo", "wol": "wo",
+    # Fula / Fulfulde
+    "fula": "ff", "fulfulde": "ff", "ff": "ff", "fub": "ff", "fui": "ff",
+    # Tigrinya
+    "tigrinya": "ti", "ti": "ti", "tir": "ti",
+    # Oromo
+    "oromo": "om", "om": "om", "orm": "om",
+    # Shona
+    "shona": "sn", "sn": "sn", "sna": "sn",
+    # Xhosa
+    "xhosa": "xh", "xh": "xh", "xho": "xh",
+    # Afrikaans
+    "afrikaans": "af", "af": "af", "afr": "af",
+    # Dagbani
+    "dagbani": "dag", "dag": "dag",
+    # Ga
+    "ga": "gaa", "gaa": "gaa",
+    # Ewe
+    "ewe": "ee", "ee": "ee",
+    # English
+    "english": "en", "en": "en", "eng": "en",
+    # Tsonga
+    "tsonga": "ts", "tso": "ts",
+    # Swati
+    "swati": "ss", "ssw": "ss",
+    # Rundi
+    "rundi": "rn", "run": "rn",
+    # Malagasy
+    "malagasy": "mg", "mlg": "mg",
+    # Sango
+    "sango": "sg", "sag": "sg",
+    # Venda
+    "venda": "ve", "ven": "ve",
+}
+
+
+def resolve_african_language(lang: str) -> str:
+    """Map African language names/ISO codes to canonical OmniVoice language tags."""
+    if not lang:
+        return lang
+    key = lang.lower().strip()
+    return AFRICAN_LANGUAGE_MAP.get(key, key)

@@ -90,6 +90,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to raw JSONL file (alternative to --input_manifest).",
     )
     parser.add_argument(
+        "--input_parquet",
+        default=None,
+        help="Glob of parquet shards with an HF-Audio 'audio' column "
+        "(alternative to --input_manifest/--input_jsonl).",
+    )
+    parser.add_argument(
+        "--parquet_text_col",
+        default="text",
+        help="Text column name in the parquet (e.g. 'corrected_text').",
+    )
+    parser.add_argument(
+        "--parquet_lang_const",
+        default=None,
+        help="Constant language_id tag for all parquet rows (e.g. 'en').",
+    )
+    parser.add_argument(
+        "--parquet_lang_from_dir",
+        action="store_true",
+        help="Derive language_id from each shard's parent dir suffix "
+        "(e.g. Ewe_ewe -> ewe). Overrides --parquet_lang_const.",
+    )
+    parser.add_argument(
         "--tar_output_pattern",
         required=True,
         help="Tar shard pattern passed to WebDataset",
@@ -281,7 +303,7 @@ def _normalise_value(value: Any) -> Any:
 def _encode_metadata(metadata: dict[str, Any]) -> bytes:
     cleaned: dict[str, Any] = {}
     for key, value in metadata.items():
-        if value is None:
+        if value is None or key == "words":
             continue
         cleaned[key] = _normalise_value(value)
     return json.dumps(cleaned, ensure_ascii=False).encode("utf-8")
@@ -327,9 +349,13 @@ def main() -> None:
     mp.set_start_method("spawn", force=True)
 
     # Validate input arguments
-    assert bool(args.input_manifest) != bool(
-        args.input_jsonl
-    ), "Exactly one of --input_manifest or --input_jsonl must be provided."
+    _n_inputs = sum(
+        bool(x) for x in (args.input_manifest, args.input_jsonl, args.input_parquet)
+    )
+    assert _n_inputs == 1, (
+        "Exactly one of --input_manifest / --input_jsonl / --input_parquet "
+        "must be provided."
+    )
 
     if args.num_machines > 1:
         assert (
@@ -337,7 +363,25 @@ def main() -> None:
         ), f"machine_index {args.machine_index} must be in [0, {args.num_machines})"
 
     # Build base dataset and count total samples based on input mode
-    if args.input_jsonl:
+    if args.input_parquet:
+        import glob as _glob
+        from omnivoice.data.parquet_reader import ParquetDatasetReader
+
+        parquet_files = sorted(_glob.glob(args.input_parquet))
+        assert parquet_files, f"No parquet files matched {args.input_parquet}"
+        logging.info(
+            f"Input mode: parquet ({len(parquet_files)} shards from {args.input_parquet})"
+        )
+        base_dataset = ParquetDatasetReader(
+            parquet_files,
+            sample_rate=HIGGS_INPUT_SAMPLE_RATE,
+            text_column=args.parquet_text_col,
+            lang_const=args.parquet_lang_const,
+            lang_from_dir=args.parquet_lang_from_dir,
+        )
+        total_samples = len(base_dataset)
+        loader_workers = min(args.loader_workers, len(parquet_files))
+    elif args.input_jsonl:
         logging.info(f"Input mode: raw JSONL ({args.input_jsonl})")
         total_samples = count_lines(args.input_jsonl)
         base_dataset = JsonlDatasetReader(
@@ -485,6 +529,10 @@ def main() -> None:
                 shard_sample_count,
                 shard_duration,
             )
+            with open(manifest_path, "w", encoding="utf-8") as mf:
+                for idx in sorted(shard_manifest.keys()):
+                    tar_path, jsonl_path, count, duration = shard_manifest[idx]
+                    mf.write(f"{tar_path} {jsonl_path} {count} {duration:.3f}\n")
         tar_fname = tar_output_pattern % shard_idx
         jsonl_fname = jsonl_output_pattern % shard_idx
         tar_writer = wds.TarWriter(tar_fname)

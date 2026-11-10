@@ -247,6 +247,7 @@ class OmniVoice(PreTrainedModel):
         train_mode = kwargs.pop("train", False)
         load_asr = kwargs.pop("load_asr", False)
         asr_model_name = kwargs.pop("asr_model_name", "openai/whisper-large-v3-turbo")
+        lora_adapter = kwargs.pop("lora_adapter", None)
 
         # Suppress noisy INFO logs from transformers/huggingface_hub during loading
         _prev_disable = logging.root.manager.disable
@@ -286,6 +287,14 @@ class OmniVoice(PreTrainedModel):
 
                 if load_asr:
                     model.load_asr_model(model_name=asr_model_name)
+
+            if lora_adapter is not None:
+                from peft import PeftModel
+
+                resolved_lora = _resolve_model_path(lora_adapter)
+                logger.info("Loading and merging LoRA adapter from %s", resolved_lora)
+                model.llm = PeftModel.from_pretrained(model.llm, resolved_lora)
+                model.llm = model.llm.merge_and_unload()
         finally:
             logging.disable(_prev_disable)
 
@@ -490,7 +499,7 @@ class OmniVoice(PreTrainedModel):
         ] = None,
         instruct: Union[str, list[str], None] = None,
         duration: Union[float, list[Optional[float]], None] = None,
-        speed: Union[float, list[Optional[float]], None] = None,
+        speed: Union[float, list[Optional[float]], None] = 0.85,
         generation_config: Optional[OmniVoiceGenerationConfig] = None,
         **kwargs,
     ) -> list[np.ndarray]:
@@ -558,6 +567,30 @@ class OmniVoice(PreTrainedModel):
         )
 
         self.eval()
+
+        use_ipa = kwargs.pop("use_ipa", True)
+        if use_ipa:
+            if isinstance(text, str):
+                text = _convert_text_to_ipa(text, language)
+            elif isinstance(text, list):
+                text = [
+                    _convert_text_to_ipa(
+                        t,
+                        language[i] if isinstance(language, list) else language,
+                    )
+                    for i, t in enumerate(text)
+                ]
+            if ref_text is not None:
+                if isinstance(ref_text, str):
+                    ref_text = _convert_text_to_ipa(ref_text, language)
+                elif isinstance(ref_text, list):
+                    ref_text = [
+                        _convert_text_to_ipa(
+                            rt,
+                            language[i] if isinstance(language, list) else language,
+                        )
+                        for i, rt in enumerate(ref_text)
+                    ]
 
         full_task = self._preprocess_all(
             text=text,
@@ -991,7 +1024,7 @@ class OmniVoice(PreTrainedModel):
             # duration[i] overrides speed for estimation: use speed=1.0
             # to get the raw estimate, then override target_lens below.
             has_dur = durations is not None and durations[i] is not None
-            item_speed = 1.0 if has_dur else (user_speed[i] if user_speed else 1.0)
+            item_speed = 1.0 if has_dur else (user_speed[i] if user_speed else 0.85)
             est = self._estimate_target_tokens(
                 text_list[i],
                 ref_text_list[i],
@@ -1016,9 +1049,9 @@ class OmniVoice(PreTrainedModel):
                     num_target_tokens_list[i] = target_tokens
                 else:
                     s = user_speed[i] if user_speed else None
-                    speed_list.append(s if s is not None else 1.0)
+                    speed_list.append(s if s is not None else 0.85)
         elif user_speed is not None:
-            speed_list = [s if s is not None else 1.0 for s in user_speed]
+            speed_list = [s if s is not None else 0.85 for s in user_speed]
 
         return GenerationTask(
             batch_size=batch_size,
@@ -1032,10 +1065,9 @@ class OmniVoice(PreTrainedModel):
             speed=speed_list,
         )
 
-    def _estimate_target_tokens(self, text, ref_text, num_ref_audio_tokens, speed=1.0):
+    def _estimate_target_tokens(self, text, ref_text, num_ref_audio_tokens, speed=0.85):
         """Estimate number of target audio tokens."""
         if num_ref_audio_tokens is None or ref_text is None or len(ref_text) == 0:
-            # Fall back to a simple heuristic
             ref_text = "Nice to meet you."
             num_ref_audio_tokens = 25
 
@@ -1325,6 +1357,34 @@ class OmniVoice(PreTrainedModel):
 # ---------------------------------------------------------------------------
 # Standalone helpers
 # ---------------------------------------------------------------------------
+
+
+def _convert_text_to_ipa(t: str, lang: Optional[str]) -> str:
+    """Convert raw text to IPA using africa_g2p for African languages and English."""
+    if not t:
+        return t
+    try:
+        import africa_g2p
+
+        g2p_lang = (lang or "eng").lower()
+        if g2p_lang in ("sw", "swa"):
+            g2p_lang = "swh"
+        elif g2p_lang in ("tw", "akan", "ak"):
+            g2p_lang = "twi"
+        elif g2p_lang in ("ha", "hausa"):
+            g2p_lang = "hau"
+        elif g2p_lang in ("yo", "yoruba"):
+            g2p_lang = "yor"
+        elif g2p_lang in ("ig", "igbo"):
+            g2p_lang = "ibo"
+        elif g2p_lang in ("zu", "zulu"):
+            g2p_lang = "zul"
+        elif g2p_lang in ("en", "english"):
+            g2p_lang = "eng"
+        return africa_g2p.g2p(t, g2p_lang, output="ipa")
+    except Exception as e:
+        logger.warning(f"africa_g2p failed for '{t}' ({lang}): {e}")
+        return t
 
 
 def _get_packed_mask(document_ids):

@@ -50,6 +50,7 @@ class OmniVoiceSampleProcessor:
         use_pinyin_ratio: float,
         instruct_ratio: float,
         only_instruct_ratio: float,
+        use_ipa: bool = False,
     ):
         self.text_tokenizer = text_tokenizer
         self.num_channels = num_channels
@@ -62,6 +63,7 @@ class OmniVoiceSampleProcessor:
         self.use_pinyin_ratio = use_pinyin_ratio
         self.instruct_ratio = instruct_ratio
         self.only_instruct_ratio = only_instruct_ratio
+        self.use_ipa = use_ipa
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
 
@@ -114,7 +116,9 @@ class OmniVoiceSampleProcessor:
         )  # Style prompt does not compute loss
 
         # --- Text ---
-        if (
+        if self.use_ipa and "transcript" in sample["label"]:
+            text = sample["label"]["transcript"]
+        elif (
             "text_pinyin" in sample["label"]
             and random.uniform(0, 1) < self.use_pinyin_ratio
         ):

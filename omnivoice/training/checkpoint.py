@@ -132,13 +132,26 @@ def save_checkpoint(
     # 1. Save Accelerator State (Optimizer, Scheduler, RNG, Scaler)
     accelerator.save_state(checkpoint_dir)
 
-    # 2. Save Model in HF format (config.json + pytorch_model.bin/safetensors)
+    # 2. Save Model (LoRA adapter or full weights)
     unwrap_model = accelerator.unwrap_model(model)
-    unwrap_model.save_pretrained(
-        checkpoint_dir,
-        is_main_process=accelerator.is_main_process,
-        save_function=accelerator.save,
+    is_lora = (
+        hasattr(unwrap_model, "llm")
+        and hasattr(unwrap_model.llm, "save_pretrained")
+        and type(unwrap_model.llm).__name__ == "PeftModel"
     )
+
+    if accelerator.is_main_process:
+        if is_lora:
+            unwrap_model.llm.save_pretrained(checkpoint_dir)
+            unwrap_model.config.save_pretrained(checkpoint_dir)
+            logger.info(f"Saved LoRA adapter checkpoint to {checkpoint_dir}")
+        else:
+            unwrap_model.save_pretrained(
+                checkpoint_dir,
+                is_main_process=accelerator.is_main_process,
+                save_function=accelerator.save,
+            )
+            logger.info(f"Saved full model checkpoint to {checkpoint_dir}")
 
     # 3. Save Tokenizer
     if accelerator.is_main_process:
@@ -146,13 +159,15 @@ def save_checkpoint(
 
     logger.info(f"Saved checkpoint to {checkpoint_dir}")
 
-    # 4. Rotate checkpoints (Keep last N)
+    # 4. Rotate checkpoints (Keep last N, excluding checkpoint-best)
     if accelerator.is_main_process and keep_last_n > 0:
         checkpoints = [
             d
             for d in os.listdir(output_dir)
             if d.startswith("checkpoint-")
+            and not d.startswith("checkpoint-best")
             and os.path.isdir(os.path.join(output_dir, d))
+            and d.split("-")[-1].isdigit()
         ]
         # Sort by step number
         checkpoints.sort(key=lambda x: int(x.split("-")[-1]))

@@ -22,6 +22,7 @@ evaluation, gradient accumulation, and learning rate scheduling.
 Launched via ``omnivoice.cli.train``.
 """
 
+import json
 import logging
 import math
 import os
@@ -95,6 +96,8 @@ class OmniTrainer:
 
         self.global_step = 0
         self.epoch = 0
+        self.best_eval_loss = float("inf")
+        self.early_stop_patience_counter = 0
 
     def _init_accelerator(self) -> Accelerator:
         """Initialize Accelerator, DeepSpeed, and Logging."""
@@ -160,8 +163,9 @@ class OmniTrainer:
 
     def create_optimizer_and_scheduler(self):
         """Default AdamW + configurable LR Scheduler."""
+        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(
-            self.model.parameters(),
+            trainable_params,
             lr=self.config.learning_rate,
             weight_decay=self.config.weight_decay,
         )
@@ -199,11 +203,47 @@ class OmniTrainer:
             checkpoint_dir = os.path.join(self.config.output_dir, f"checkpoint-{step}")
             self.config.save_to_json(os.path.join(checkpoint_dir, "train_config.json"))
 
+    def save_checkpoint_best(self, step, eval_loss):
+        """Save best checkpoint and record metadata."""
+        engine_save_checkpoint(
+            self.accelerator,
+            self.model,
+            self.tokenizer,
+            self.config.output_dir,
+            step="best",
+            keep_last_n=-1,
+        )
+        if self.accelerator.is_main_process:
+            best_dir = os.path.join(self.config.output_dir, "checkpoint-best")
+            meta = {
+                "step": step,
+                "eval_loss": eval_loss,
+                "timestamp": time.time(),
+            }
+            with open(os.path.join(best_dir, "best_meta.json"), "w") as f:
+                json.dump(meta, f, indent=4)
+            if hasattr(self.config, "save_to_json"):
+                self.config.save_to_json(os.path.join(best_dir, "train_config.json"))
+            logger.info(
+                f"Updated best checkpoint at {best_dir} (step {step}, eval_loss {eval_loss:.4f})"
+            )
+
     def load_checkpoint(self, checkpoint_path):
         """Wrapper for loading."""
         step = load_checkpoint(self.accelerator, checkpoint_path)
         self.global_step = step
         logger.info(f"Resumed from step {self.global_step}")
+
+        # Restore best eval loss if available
+        best_meta = os.path.join(self.config.output_dir, "checkpoint-best", "best_meta.json")
+        if os.path.isfile(best_meta):
+            try:
+                with open(best_meta, "r") as f:
+                    data = json.load(f)
+                    self.best_eval_loss = data.get("eval_loss", float("inf"))
+                    logger.info(f"Loaded existing best eval loss: {self.best_eval_loss:.4f}")
+            except Exception:
+                pass
         return step
 
     def evaluate(self):
@@ -217,12 +257,15 @@ class OmniTrainer:
         local_loss_sum = torch.tensor(0.0, device=self.accelerator.device)
         eval_count = 0
 
+        max_eval = getattr(self.config, "max_eval_batches", 30)
         with torch.no_grad():
             for eval_batch in self.eval_dataloader:
                 eval_batch = _to_device(eval_batch, self.accelerator.device)
                 outputs = self.model(**eval_batch)
                 local_loss_sum += outputs.loss.detach()
                 eval_count += 1
+                if max_eval > 0 and eval_count >= max_eval:
+                    break
 
         if eval_count > 0:
             local_mean = local_loss_sum / eval_count
@@ -291,7 +334,8 @@ class OmniTrainer:
                     grad_norm = 0.0
                     if self.config.max_grad_norm > 0:
                         grad_norm = self.accelerator.clip_grad_norm_(
-                            self.model.parameters(), self.config.max_grad_norm
+                            [p for p in self.model.parameters() if p.requires_grad],
+                            self.config.max_grad_norm,
                         )
                         grad_norm = (
                             grad_norm.item() if grad_norm is not None else 0.0
@@ -337,15 +381,45 @@ class OmniTrainer:
                         logging_start_step = self.global_step
 
                     # Evaluate
+                    eval_metrics = {}
                     if (
                         self.eval_dataloader is not None
                         and self.global_step % self.config.eval_steps == 0
                     ):
-                        self.evaluate()
+                        eval_metrics = self.evaluate()
 
-                    # Save
+                    # Save regular checkpoint
                     if self.global_step % self.config.save_steps == 0:
                         self.save_checkpoint(self.global_step)
+
+                    # Early stopping check
+                    if (
+                        getattr(self.config, "early_stopping", False)
+                        and "eval/loss" in eval_metrics
+                    ):
+                        eval_loss = eval_metrics["eval/loss"]
+                        patience = getattr(self.config, "early_stopping_patience", 15)
+                        threshold = getattr(self.config, "early_stopping_threshold", 0.001)
+
+                        if eval_loss < (self.best_eval_loss - threshold):
+                            logger.info(
+                                f"Validation loss improved from {self.best_eval_loss:.4f} to {eval_loss:.4f}."
+                            )
+                            self.best_eval_loss = eval_loss
+                            self.early_stop_patience_counter = 0
+                            self.save_checkpoint_best(self.global_step, eval_loss)
+                        else:
+                            self.early_stop_patience_counter += 1
+                            logger.info(
+                                f"Validation loss did not improve (best: {self.best_eval_loss:.4f}, current: {eval_loss:.4f}). "
+                                f"Patience: {self.early_stop_patience_counter}/{patience}"
+                            )
+                            if self.early_stop_patience_counter >= patience:
+                                logger.info(
+                                    f"Early stopping triggered at step {self.global_step}! "
+                                    f"No improvement for {self.early_stop_patience_counter} consecutive evaluations."
+                                )
+                                break
 
         # Final Save
         self.save_checkpoint(self.global_step)

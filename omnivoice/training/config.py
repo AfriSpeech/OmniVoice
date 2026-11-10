@@ -48,6 +48,7 @@ class TrainingConfig:
     mask_ratio_range: Tuple[float, float] = field(default_factory=lambda: (0.0, 1.0))
     language_ratio: float = 0.8
     use_pinyin_ratio: float = 0.3
+    use_ipa: bool = False
     instruct_ratio: float = 1.0
     only_instruct_ratio: float = 0.5
 
@@ -78,16 +79,41 @@ class TrainingConfig:
     deepspeed_config: Optional[str] = None
     attn_implementation: str = "flex_attention"
 
+    # LoRA Fine-Tuning
+    use_lora: bool = False
+    lora_r: int = 32
+    lora_alpha: int = 64
+    lora_dropout: float = 0.05
+    use_rslora: bool = True
+    lora_target_modules: List[str] = field(
+        default_factory=lambda: [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+    )
+    lora_bias: str = "none"
+
     # Length-grouped batching (only used when attn_implementation != "flex_attention")
     max_sample_tokens: int = 2000
     min_sample_tokens: int = 50
     max_batch_size: int = 64
 
-    # Logging
+    # Logging & Checkpointing
     logging_steps: int = 100
     eval_steps: int = 1000
     save_steps: int = 10000
+    max_eval_batches: int = 30
     keep_last_n_checkpoints: int = -1
+
+    # Early Stopping
+    early_stopping: bool = True
+    early_stopping_patience: int = 15
+    early_stopping_threshold: float = 0.001
 
     @classmethod
     def from_json(cls, json_path: str):

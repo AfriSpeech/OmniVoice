@@ -1,0 +1,12 @@
+{
+    "train": [
+        {
+            "manifest_path": ["/mnt/volume_d2wey28/data/africa-tts/tokens/train/data.lst"]
+        }
+    ],
+    "dev": [
+        {
+            "manifest_path": ["/mnt/volume_d2wey28/data/africa-tts/tokens/dev/data.lst"]
+        }
+    ]
+}

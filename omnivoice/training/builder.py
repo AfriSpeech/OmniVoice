@@ -125,6 +125,33 @@ def build_model_and_tokenizer(
     model.config.bos_token_id = tokenizer.bos_token_id
     model.config.eos_token_id = tokenizer.eos_token_id
 
+    # 5. Apply LoRA if configured
+    if getattr(config, "use_lora", False):
+        try:
+            from peft import LoraConfig, get_peft_model
+        except ImportError:
+            raise ImportError(
+                "peft is required for LoRA training. Please install peft: pip install peft"
+            )
+        logger.info(
+            f"Applying LoRA (r={config.lora_r}, alpha={config.lora_alpha}, "
+            f"rslora={config.use_rslora}) to model.llm..."
+        )
+        peft_config = LoraConfig(
+            r=config.lora_r,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            use_rslora=config.use_rslora,
+            bias=config.lora_bias,
+            target_modules=config.lora_target_modules,
+            task_type=None,
+        )
+        model.llm = get_peft_model(model.llm, peft_config)
+        model.audio_embeddings.requires_grad_(False)
+        model.audio_heads.requires_grad_(False)
+        if hasattr(model.llm, "print_trainable_parameters"):
+            model.llm.print_trainable_parameters()
+
     return model, tokenizer
 
 
@@ -153,6 +180,7 @@ def build_dataloaders(
         use_pinyin_ratio=config.use_pinyin_ratio,
         instruct_ratio=config.instruct_ratio,
         only_instruct_ratio=config.only_instruct_ratio,
+        use_ipa=getattr(config, "use_ipa", False),
     )
 
     train_manifests, dev_manifests = prepare_data_manifests_from_json(

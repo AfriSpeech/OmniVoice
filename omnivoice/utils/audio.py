@@ -37,14 +37,21 @@ from pydub.silence import detect_leading_silence, detect_nonsilent, split_on_sil
 logger = logging.getLogger(__name__)
 
 
+from typing import Optional
+
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
 
 
-def load_waveform(audio_path: str):
+def load_waveform(
+    audio_path: str,
+    start: float = 0.0,
+    duration: Optional[float] = None,
+):
     """Load audio from a file path, returning (data, sample_rate).
 
+    Supports start offset and duration in seconds for efficient sliced reading.
     Tries two backends in order:
     1. soundfile — covers WAV/FLAC/OGG etc., no ffmpeg needed.
     2. librosa — covers MP3/M4A etc. via audioread + ffmpeg.
@@ -54,29 +61,60 @@ def load_waveform(audio_path: str):
         shape (C, T).
     """
     try:
-        data, sr = sf.read(audio_path, dtype="float32", always_2d=True)
+        if start > 0.0 or duration is not None:
+            info = sf.info(audio_path)
+            sr = info.samplerate
+            start_frame = max(0, int(round(start * sr)))
+            stop_frame = (
+                int(round((start + duration) * sr))
+                if duration is not None
+                else None
+            )
+            data, sr = sf.read(
+                audio_path,
+                start=start_frame,
+                stop=stop_frame,
+                dtype="float32",
+                always_2d=True,
+            )
+        else:
+            data, sr = sf.read(audio_path, dtype="float32", always_2d=True)
         return data.T, sr  # (T, C) → (C, T)
     except Exception:
         # soundfile cannot handle MP3/M4A etc., fall back to librosa.
         import librosa
 
-        data, sr = librosa.load(audio_path, sr=None, mono=False)
+        offset = start if start > 0.0 else 0.0
+        data, sr = librosa.load(
+            audio_path,
+            sr=None,
+            mono=False,
+            offset=offset,
+            duration=duration,
+        )
         if data.ndim == 1:
             data = data[np.newaxis, :]
         return data, sr
 
 
-def load_audio(audio_path: str, sampling_rate: int) -> np.ndarray:
+def load_audio(
+    audio_path: str,
+    sampling_rate: int,
+    start: float = 0.0,
+    duration: Optional[float] = None,
+) -> np.ndarray:
     """Load a waveform from file and resample to the target rate.
 
     Parameters:
         audio_path: path of the audio.
         sampling_rate: target sampling rate.
+        start: start time in seconds (default 0.0).
+        duration: duration to load in seconds (default None, load until end).
 
     Returns:
         Numpy float32 array of shape (1, T).
     """
-    data, sr = load_waveform(audio_path)
+    data, sr = load_waveform(audio_path, start=start, duration=duration)
 
     if data.shape[0] > 1:
         data = np.mean(data, axis=0, keepdims=True)
