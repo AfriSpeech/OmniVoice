@@ -1367,20 +1367,30 @@ def _convert_text_to_ipa(t: str, lang: Optional[str]) -> str:
         import africa_g2p
 
         g2p_lang = (lang or "eng").lower()
-        if g2p_lang in ("sw", "swa"):
-            g2p_lang = "swh"
-        elif g2p_lang in ("tw", "akan", "ak"):
-            g2p_lang = "twi"
-        elif g2p_lang in ("ha", "hausa"):
-            g2p_lang = "hau"
-        elif g2p_lang in ("yo", "yoruba"):
-            g2p_lang = "yor"
-        elif g2p_lang in ("ig", "igbo"):
-            g2p_lang = "ibo"
-        elif g2p_lang in ("zu", "zulu"):
-            g2p_lang = "zul"
-        elif g2p_lang in ("en", "english"):
-            g2p_lang = "eng"
+        mapping = {
+            "sw": "swh", "swa": "swh",
+            "tw": "twi", "ak": "twi", "akan": "twi",
+            "ha": "hau", "hausa": "hau",
+            "yo": "yor", "yoruba": "yor",
+            "ig": "ibo", "igbo": "ibo",
+            "zu": "zul", "zulu": "zul",
+            "en": "eng", "english": "eng",
+            "am": "amh", "amharic": "amh",
+            "sn": "sna", "shona": "sna",
+            "rw": "kin", "kinyarwanda": "kin",
+            "ti": "tir", "tigrinya": "tir",
+            "so": "som", "somali": "som",
+            "ln": "lin", "lingala": "lin",
+            "wo": "wol", "wolof": "wol",
+            "xh": "xho", "xhosa": "xho",
+            "ts": "tso", "tsonga": "tso",
+            "ss": "ssw", "swati": "ssw",
+            "rn": "run", "rundi": "run",
+            "mg": "mlg", "malagasy": "mlg",
+            "sg": "sag", "sango": "sag",
+            "ve": "ven", "venda": "ven",
+        }
+        g2p_lang = mapping.get(g2p_lang, g2p_lang)
         return africa_g2p.g2p(t, g2p_lang, output="ipa")
     except Exception as e:
         logger.warning(f"africa_g2p failed for '{t}' ({lang}): {e}")

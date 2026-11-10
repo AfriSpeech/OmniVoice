@@ -1,7 +1,12 @@
 {
-    "llm_name_or_path": "/mnt/volume_d2wey28/models/OmniVoice-base",
-    "init_from_checkpoint": "/mnt/volume_d2wey28/models/OmniVoice-base",
-    "resume_from_checkpoint": "/mnt/volume_d2wey28/checkpoints/omnivoice_african_lora/checkpoint-400",
+    "llm_name_or_path": "k2-fsa/OmniVoice",
+    "init_from_checkpoint": "k2-fsa/OmniVoice",
+    "resume_from_checkpoint": null,
+
+    "warm_start": true,
+    "custom_tokenizer_path": "recipes/africa/tokenizer/ipa_sp4000.json",
+    "reset_text_embedding": true,
+    "embedding_lr_multiplier": 4.0,
 
     "audio_vocab_size": 1025,
     "audio_mask_id": 1024,
@@ -17,23 +22,9 @@
     "instruct_ratio": 0.0,
     "only_instruct_ratio": 0.0,
 
-    "use_lora": true,
-    "lora_r": 32,
-    "lora_alpha": 64,
-    "lora_dropout": 0.05,
-    "use_rslora": true,
-    "lora_target_modules": [
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj"
-    ],
-    "lora_bias": "none",
+    "use_lora": false,
 
-    "learning_rate": 2e-5,
+    "learning_rate": 5e-5,
     "weight_decay": 0.01,
     "max_grad_norm": 1.0,
     "steps": 270000,
@@ -50,10 +41,10 @@
     "attn_implementation": "flex_attention",
 
     "logging_steps": 20,
-    "eval_steps": 200,
-    "save_steps": 200,
+    "eval_steps": 250,
+    "save_steps": 1000,
     "max_eval_batches": 30,
-    "keep_last_n_checkpoints": 5,
+    "keep_last_n_checkpoints": 2,
 
     "early_stopping": true,
     "early_stopping_patience": 15,

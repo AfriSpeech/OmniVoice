@@ -35,15 +35,20 @@ pipeline_tag: text-to-speech
 
 # OmniVoice-Africa 🌍
 
-**OmniVoice-Africa** is an omnilingual zero-shot text-to-speech foundation model adapted for **African languages and English**, fine-tuned on the 897-hour [AfriSpeech/african-speech-tts-aligned](https://huggingface.co/datasets/AfriSpeech/african-speech-tts-aligned) dataset on an NVIDIA H200 GPU.
+**OmniVoice-Africa** is an omnilingual zero-shot text-to-speech foundation model adapted for **African languages and English**, trained on the 897-hour [AfriSpeech/african-speech-tts-aligned](https://huggingface.co/datasets/AfriSpeech/african-speech-tts-aligned) dataset on an NVIDIA H200 GPU.
 
-It builds on [k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice) (Qwen3-0.6B backbone + 8-codebook HiggsAudio discrete codec) and incorporates phonetic IPA representations powered by [africa-g2p](https://github.com/AfriSpeech/africa-g2p) and `espeak-ng`.
+It follows the **Africa-TTS warm-start architecture**:
+* Retains the full 28-layer transformer backbone and 8-codebook audio heads from [k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice).
+* Replaces the generic 151k BPE tokenizer with the specialized **4,007-token African IPA SentencePiece tokenizer** (`ipa_sp4000`).
+* Re-initializes and trains fresh phonetic text embeddings using differential learning rates ($\text{LR} = 2 \times 10^{-4}$ for embeddings, $\text{LR} = 5 \times 10^{-5}$ for the backbone).
+* Converts input text to IPA automatically via [africa-g2p](https://github.com/AfriSpeech/africa-g2p) and `espeak-ng`.
+* Lean 461M parameter footprint (**1.8 GB**).
 
 ---
 
-## Benchmark: OmniVoice vs. OmniVoice-Africa
+## Intelligibility Benchmark: OmniVoice vs. OmniVoice-Africa
 
-To evaluate intelligibility improvements, both models were tested across representative African languages using Meta's **MMS-1B** (Massively Multilingual Speech) ASR model as a neutral judge. Both models were tested at the identical calibrated speaking rate (`speed=0.85`).
+Both models were evaluated across representative African languages using Meta's **MMS-1B** (Massively Multilingual Speech) ASR model as an unbiased judge at calibrated conversational speed (`speed=0.85`).
 
 <p align="center">
   <img src="https://huggingface.co/AfriSpeech/omnivoice-africa/resolve/main/benchmark_comparison.png" alt="OmniVoice vs OmniVoice-Africa CER Benchmark" width="95%" />
@@ -51,15 +56,15 @@ To evaluate intelligibility improvements, both models were tested across represe
 
 ### Character Error Rate (CER % — Lower is Better)
 
-| Language | Language Code | Original OmniVoice CER | OmniVoice-Africa CER | Relative Improvement |
-|---|---|---|---|---|
-| **Twi (Akan)** | `tw` / `aka` | 17.2% | **8.5%** | **-50.2%** |
-| **Shona** | `sn` / `sna` | 8.7% | **1.9%** | **-77.8%** |
-| **Amharic** | `am` / `amh` | 6.9% | **5.6%** | **-19.1%** |
-| **Ghanaian English** | `en` / `eng` | 3.3% | **2.5%** | **-25.0%** |
-| **Hausa** | `ha` / `hau` | 2.8% | **2.8%** | Baseline Parity |
-| **Swahili** | `sw` / `swh` | 0.0% | **0.8%** | High Intelligibility |
-| **Zulu** | `zu` / `zul` | 0.0% | **1.7%** | High Intelligibility |
+| Language | Language Code | Original OmniVoice CER | OmniVoice-Africa CER |
+|---|---|---|---|
+| **Twi (Akan)** | `tw` / `aka` | 11.5% | **10.4%** |
+| **Shona** | `sn` / `sna` | 7.7% | **4.8%** |
+| **Hausa** | `ha` / `hau` | 2.8% | **8.3%** |
+| **Yoruba** | `yo` / `yor` | 32.7% | **34.4%** |
+| **Swahili** | `sw` / `swh` | 0.0% | **1.0%** |
+| **Amharic** | `am` / `amh` | 4.1% | **5.9%** |
+| **Ghanaian English** | `en` / `eng` | 1.6% | **6.6%** |
 
 ---
 
@@ -83,9 +88,8 @@ Any additional language supported by [africa-g2p](https://github.com/AfriSpeech/
 ### Installation
 
 ```bash
-git clone https://github.com/michsethowusu/OmniVoice-Streaming.git
-cd OmniVoice-Streaming
-git checkout omnivoice-africa
+git clone https://github.com/AfriSpeech/OmniVoice.git
+cd OmniVoice
 pip install -e .
 
 # Install African phonetic G2P & English espeak dependencies
@@ -100,6 +104,7 @@ import soundfile as sf
 import torch
 from omnivoice.models.omnivoice import OmniVoice
 
+# Loads the warm-started model with its integrated 4k IPA tokenizer
 model = OmniVoice.from_pretrained(
     "AfriSpeech/omnivoice-africa",
     device_map="cuda:0",
