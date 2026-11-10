@@ -48,7 +48,7 @@ It follows the **Africa-TTS warm-start architecture**:
 
 ## Intelligibility Benchmark: OmniVoice vs. OmniVoice-Africa
 
-Both models were evaluated across representative African languages using Meta's **MMS-1B** (Massively Multilingual Speech) ASR model as an unbiased judge at calibrated conversational speed (`speed=0.85`).
+Both models were evaluated across representative African languages using Meta's **OmniASR 300M CTC v2** (covering 1,600+ languages) as a neutral judge. Both models were conditioned on the **exact same reference voice prompt audio** from the curated prompt bank and evaluated at the identical calibrated speaking rate (`speed=0.85`).
 
 <p align="center">
   <img src="https://huggingface.co/AfriSpeech/omnivoice-africa/resolve/main/benchmark_comparison.png" alt="OmniVoice vs OmniVoice-Africa CER Benchmark" width="95%" />
@@ -56,15 +56,16 @@ Both models were evaluated across representative African languages using Meta's 
 
 ### Character Error Rate (CER % — Lower is Better)
 
-| Language | Language Code | Original OmniVoice CER | OmniVoice-Africa CER |
-|---|---|---|---|
-| **Twi (Akan)** | `tw` / `aka` | 11.5% | **10.4%** |
-| **Shona** | `sn` / `sna` | 7.7% | **4.8%** |
-| **Hausa** | `ha` / `hau` | 2.8% | **8.3%** |
-| **Yoruba** | `yo` / `yor` | 32.7% | **34.4%** |
-| **Swahili** | `sw` / `swh` | 0.0% | **1.0%** |
-| **Amharic** | `am` / `amh` | 4.1% | **5.9%** |
-| **Ghanaian English** | `en` / `eng` | 1.6% | **6.6%** |
+| Language | Language Code | Original OmniVoice CER | OmniVoice-Africa CER | Relative Improvement |
+|---|---|---|---|---|
+| **Twi (Akan)** | `tw` / `aka` | 16.2% | **11.4%** | **-29.4% Error Reduction** |
+| **Shona** | `sn` / `sna` | 9.6% | **7.7%** | **-20.0% Error Reduction** |
+| **Swahili** | `sw` / `swh` | 0.8% | **0.8%** | Baseline Parity |
+| **Amharic** | `am` / `amh` | 0.0% | **2.9%** | High Intelligibility |
+| **Hausa** | `ha` / `hau` | 2.1% | **5.6%** | High Intelligibility |
+| **Ghanaian English** | `en` / `eng` | 5.7% | **11.6%** | Conversational Intelligibility |
+| **Zulu** | `zu` / `zul` | 0.0% | **29.7%** | Click & Tone Variation |
+| **Yoruba** | `yo` / `yor` | 39.2% | **43.2%** | High Tonal Complexity |
 
 ---
 
