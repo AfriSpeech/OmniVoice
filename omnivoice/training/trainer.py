@@ -162,13 +162,34 @@ class OmniTrainer:
         return accelerator
 
     def create_optimizer_and_scheduler(self):
-        """Default AdamW + configurable LR Scheduler."""
-        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.AdamW(
-            trainable_params,
-            lr=self.config.learning_rate,
-            weight_decay=self.config.weight_decay,
-        )
+        """Default AdamW + configurable LR Scheduler, with optional embedding LR multiplier for warm-start."""
+        mult = getattr(self.config, "embedding_lr_multiplier", 1.0)
+
+        if mult > 1.0 and hasattr(self.model, "llm"):
+            embed_params = list(self.model.llm.get_input_embeddings().parameters())
+            embed_ids = set(id(p) for p in embed_params)
+            other_params = [
+                p for p in self.model.parameters() if p.requires_grad and id(p) not in embed_ids
+            ]
+
+            optimizer = torch.optim.AdamW(
+                [
+                    {"params": other_params, "lr": self.config.learning_rate},
+                    {"params": embed_params, "lr": self.config.learning_rate * mult},
+                ],
+                weight_decay=self.config.weight_decay,
+            )
+            logger.info(
+                f"Warm-Start Optimizer: backbone lr={self.config.learning_rate:.2e}, "
+                f"fresh text embeddings lr={self.config.learning_rate * mult:.2e} ({mult}x)"
+            )
+        else:
+            trainable_params = [p for p in self.model.parameters() if p.requires_grad]
+            optimizer = torch.optim.AdamW(
+                trainable_params,
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
 
         if self.config.warmup_type == "ratio":
             final_warmup_steps = math.ceil(self.config.steps * self.config.warmup_ratio)

@@ -56,6 +56,12 @@ class TrainingConfig:
     resume_from_checkpoint: Optional[str] = None
     init_from_checkpoint: Optional[str] = None
 
+    # Warm Start settings (Africa-TTS style: reset text embeddings for specialized IPA tokenizer)
+    warm_start: bool = False
+    custom_tokenizer_path: Optional[str] = None
+    reset_text_embedding: bool = False
+    embedding_lr_multiplier: float = 2.0
+
     # Training Hyperparams
     learning_rate: float = 1e-4
     weight_decay: float = 0.01

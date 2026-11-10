@@ -59,15 +59,23 @@ def build_model_and_tokenizer(
     logger.info("Initializing Model & Tokenizer...")
 
     # 1. Tokenizer
-    tokenizer_path = (
-        config.init_from_checkpoint
-        if config.init_from_checkpoint
-        else config.llm_name_or_path
-    )
-    tokenizer_path = _resolve_model_path(tokenizer_path)
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    if getattr(config, "custom_tokenizer_path", None):
+        from transformers import PreTrainedTokenizerFast
+
+        logger.info(f"Loading custom tokenizer from {config.custom_tokenizer_path}...")
+        tokenizer = PreTrainedTokenizerFast(tokenizer_file=config.custom_tokenizer_path)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = "<unk>"
+    else:
+        tokenizer_path = (
+            config.init_from_checkpoint
+            if config.init_from_checkpoint
+            else config.llm_name_or_path
+        )
+        tokenizer_path = _resolve_model_path(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
 
     new_tokens = [
         "<|denoise|>",
@@ -117,15 +125,23 @@ def build_model_and_tokenizer(
 
     # 3. Resize Embeddings
     if len(tokenizer) != model.config.llm_config.vocab_size:
+        logger.info(
+            f"Resizing text embeddings from {model.config.llm_config.vocab_size} to {len(tokenizer)}..."
+        )
         model.llm.resize_token_embeddings(len(tokenizer))
         model.config.llm_config.vocab_size = len(tokenizer)
 
-    # 4. Config IDs
+    # 4. Reset Text Embedding if warm start requested (Africa-TTS style)
+    if getattr(config, "reset_text_embedding", False):
+        logger.info("Africa-TTS Warm Start: Resetting text embedding table from scratch (normal std=0.02)...")
+        torch.nn.init.normal_(model.llm.get_input_embeddings().weight, mean=0.0, std=0.02)
+
+    # 5. Config IDs
     model.config.pad_token_id = tokenizer.pad_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
     model.config.eos_token_id = tokenizer.eos_token_id
 
-    # 5. Apply LoRA if configured
+    # 6. Apply LoRA if configured
     if getattr(config, "use_lora", False):
         try:
             from peft import LoraConfig, get_peft_model
