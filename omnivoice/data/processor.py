@@ -26,9 +26,10 @@ Contains two processor classes:
 - ``OmniVoiceSimpleSampleProcessor``: Simplified processor (not used for training).
 """
 
+import os
 import random
 from functools import lru_cache
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import torch
 
@@ -74,6 +75,8 @@ class OmniVoiceSampleProcessor:
         only_instruct_ratio: float,
         use_ipa: bool = False,
         use_universal_text: bool = False,
+        use_hybrid_routing: bool = False,
+        routing_map_path: Optional[str] = None,
     ):
         self.text_tokenizer = text_tokenizer
         self.num_channels = num_channels
@@ -88,6 +91,12 @@ class OmniVoiceSampleProcessor:
         self.only_instruct_ratio = only_instruct_ratio
         self.use_ipa = use_ipa
         self.use_universal_text = use_universal_text
+        self.use_hybrid_routing = use_hybrid_routing
+        self.routing_map = {}
+        if routing_map_path and os.path.exists(routing_map_path):
+            import json
+            with open(routing_map_path, "r", encoding="utf-8") as f:
+                self.routing_map = json.load(f)
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
 
@@ -140,7 +149,15 @@ class OmniVoiceSampleProcessor:
         )  # Style prompt does not compute loss
 
         # --- Text ---
-        if self.use_universal_text:
+        if self.use_hybrid_routing:
+            raw_t = sample["label"].get("text", "")
+            lang = str(sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")).lower()
+            mode = self.routing_map.get(lang, "normal")
+            if mode == "universal":
+                text = to_universal_form(raw_t, lang)
+            else:
+                text = raw_t
+        elif self.use_universal_text:
             raw_t = sample["label"].get("text", "")
             lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
             text = to_universal_form(raw_t, str(lang))

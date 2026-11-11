@@ -198,6 +198,8 @@ def build_dataloaders(
         only_instruct_ratio=config.only_instruct_ratio,
         use_ipa=getattr(config, "use_ipa", False),
         use_universal_text=getattr(config, "use_universal_text", False),
+        use_hybrid_routing=getattr(config, "use_hybrid_routing", False),
+        routing_map_path=getattr(config, "routing_map_path", None),
     )
 
     train_manifests, dev_manifests = prepare_data_manifests_from_json(
