@@ -27,9 +27,31 @@ Contains two processor classes:
 """
 
 import random
+from functools import lru_cache
 from typing import Any, Dict
 
 import torch
+
+
+@lru_cache(maxsize=128)
+def _get_universal_converter(lang: str):
+    try:
+        from africa_g2p import GraphemeConverter, UNIVERSAL
+        return GraphemeConverter(lang, UNIVERSAL)
+    except Exception:
+        return None
+
+
+def to_universal_form(text: str, lang: str) -> str:
+    if not text:
+        return ""
+    conv = _get_universal_converter(lang)
+    if conv:
+        try:
+            return conv.convert(text, lower=True)
+        except Exception:
+            return text
+    return text
 
 
 class OmniVoiceSampleProcessor:
@@ -51,6 +73,7 @@ class OmniVoiceSampleProcessor:
         instruct_ratio: float,
         only_instruct_ratio: float,
         use_ipa: bool = False,
+        use_universal_text: bool = False,
     ):
         self.text_tokenizer = text_tokenizer
         self.num_channels = num_channels
@@ -64,6 +87,7 @@ class OmniVoiceSampleProcessor:
         self.instruct_ratio = instruct_ratio
         self.only_instruct_ratio = only_instruct_ratio
         self.use_ipa = use_ipa
+        self.use_universal_text = use_universal_text
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
 
@@ -116,7 +140,11 @@ class OmniVoiceSampleProcessor:
         )  # Style prompt does not compute loss
 
         # --- Text ---
-        if self.use_ipa and "transcript" in sample["label"]:
+        if self.use_universal_text:
+            raw_t = sample["label"].get("text", "")
+            lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
+            text = to_universal_form(raw_t, str(lang))
+        elif self.use_ipa and "transcript" in sample["label"]:
             text = sample["label"]["transcript"]
         elif (
             "text_pinyin" in sample["label"]

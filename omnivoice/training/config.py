@@ -49,6 +49,7 @@ class TrainingConfig:
     language_ratio: float = 0.8
     use_pinyin_ratio: float = 0.3
     use_ipa: bool = False
+    use_universal_text: bool = False
     instruct_ratio: float = 1.0
     only_instruct_ratio: float = 0.5
 

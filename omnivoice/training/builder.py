@@ -197,6 +197,7 @@ def build_dataloaders(
         instruct_ratio=config.instruct_ratio,
         only_instruct_ratio=config.only_instruct_ratio,
         use_ipa=getattr(config, "use_ipa", False),
+        use_universal_text=getattr(config, "use_universal_text", False),
     )
 
     train_manifests, dev_manifests = prepare_data_manifests_from_json(
