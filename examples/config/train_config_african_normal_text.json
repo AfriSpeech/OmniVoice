@@ -3,10 +3,10 @@
     "init_from_checkpoint": "k2-fsa/OmniVoice",
     "resume_from_checkpoint": null,
 
-    "warm_start": true,
-    "custom_tokenizer_path": "recipes/africa/tokenizer/text_sp4000.json",
-    "reset_text_embedding": true,
-    "embedding_lr_multiplier": 4.0,
+    "warm_start": false,
+    "custom_tokenizer_path": null,
+    "reset_text_embedding": false,
+    "embedding_lr_multiplier": 1.0,
 
     "audio_vocab_size": 1025,
     "audio_mask_id": 1024,
@@ -24,7 +24,7 @@
 
     "use_lora": false,
 
-    "learning_rate": 5e-5,
+    "learning_rate": 2e-5,
     "weight_decay": 0.01,
     "max_grad_norm": 1.0,
     "steps": 270000,
