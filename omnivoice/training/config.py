@@ -52,6 +52,7 @@ class TrainingConfig:
     use_universal_text: bool = False
     use_hybrid_routing: bool = False
     triplicate_modes: bool = False
+    dual_modes: bool = False
     routing_map_path: Optional[str] = None
     instruct_ratio: float = 1.0
     only_instruct_ratio: float = 0.5

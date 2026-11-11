@@ -77,6 +77,7 @@ class OmniVoiceSampleProcessor:
         use_universal_text: bool = False,
         use_hybrid_routing: bool = False,
         triplicate_modes: bool = False,
+        dual_modes: bool = False,
         routing_map_path: Optional[str] = None,
     ):
         self.text_tokenizer = text_tokenizer
@@ -94,6 +95,7 @@ class OmniVoiceSampleProcessor:
         self.use_universal_text = use_universal_text
         self.use_hybrid_routing = use_hybrid_routing
         self.triplicate_modes = triplicate_modes
+        self.dual_modes = dual_modes
         self.routing_map = {}
         if routing_map_path and os.path.exists(routing_map_path):
             import json
@@ -168,6 +170,14 @@ class OmniVoiceSampleProcessor:
                 text = to_universal_form(raw_t, str(lang))
             elif mode == "ipa":
                 text = sample["label"].get("transcript") or sample["label"].get("text", "")
+            else:
+                text = sample["label"].get("text", "")
+        elif getattr(self, "dual_modes", False):
+            mode = random.choice(["normal", "universal"])
+            if mode == "universal":
+                raw_t = sample["label"].get("text", "")
+                lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
+                text = to_universal_form(raw_t, str(lang))
             else:
                 text = sample["label"].get("text", "")
         elif self.use_hybrid_routing:

@@ -163,10 +163,17 @@ class PackingIterableDataset(WrappedIterableDataset):
         current_token_count = 0
 
         for raw_sample in self.dataset:
-            # When triplicate_modes is enabled, pack all 3 text representations (Normal, Universal, IPA)
+            # Check packing modes (triplicate: normal, universal, ipa; dual: normal, universal)
             if getattr(self.processor, "triplicate_modes", False):
+                modes = ["normal", "universal", "ipa"]
+            elif getattr(self.processor, "dual_modes", False):
+                modes = ["normal", "universal"]
+            else:
+                modes = None
+
+            if modes is not None:
                 samples_to_pack = []
-                for m in ["normal", "universal", "ipa"]:
+                for m in modes:
                     try:
                         p = self.processor(raw_sample, forced_text_mode=m)
                         samples_to_pack.append(p)
