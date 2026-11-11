@@ -334,6 +334,44 @@ class OmniTrainer:
             try:
                 batch = next(train_iterator)
             except StopIteration:
+                logger.info(f"Epoch {self.epoch} completed.")
+
+                # Epoch-end evaluation if dataloader exists
+                epoch_loss = None
+                if self.eval_dataloader is not None:
+                    epoch_metrics = self.evaluate()
+                    if "eval/loss" in epoch_metrics:
+                        epoch_loss = epoch_metrics["eval/loss"]
+
+                # Early stopping check if patience unit is "epoch"
+                if (
+                    getattr(self.config, "early_stopping", False)
+                    and getattr(self.config, "early_stopping_patience_unit", "epoch") == "epoch"
+                    and epoch_loss is not None
+                ):
+                    patience = getattr(self.config, "early_stopping_patience", 3)
+                    threshold = getattr(self.config, "early_stopping_threshold", 0.001)
+
+                    if epoch_loss < (self.best_eval_loss - threshold):
+                        logger.info(
+                            f"Epoch {self.epoch} validation loss improved from {self.best_eval_loss:.4f} to {epoch_loss:.4f}."
+                        )
+                        self.best_eval_loss = epoch_loss
+                        self.early_stop_patience_counter = 0
+                        self.save_checkpoint_best(self.global_step, epoch_loss)
+                    else:
+                        self.early_stop_patience_counter += 1
+                        logger.info(
+                            f"Epoch {self.epoch} validation loss did not improve (best: {self.best_eval_loss:.4f}, current: {epoch_loss:.4f}). "
+                            f"Epoch Patience: {self.early_stop_patience_counter}/{patience}"
+                        )
+                        if self.early_stop_patience_counter >= patience:
+                            logger.info(
+                                f"Early stopping triggered at step {self.global_step} (Epoch {self.epoch})! "
+                                f"No improvement for {self.early_stop_patience_counter} consecutive epochs."
+                            )
+                            break
+
                 self.epoch += 1
                 logger.info(f"Epoch {self.epoch} starting. Resetting dataloader...")
                 if hasattr(self.train_dataloader.dataset, "set_epoch"):
@@ -419,7 +457,6 @@ class OmniTrainer:
                         and "eval/loss" in eval_metrics
                     ):
                         eval_loss = eval_metrics["eval/loss"]
-                        patience = getattr(self.config, "early_stopping_patience", 15)
                         threshold = getattr(self.config, "early_stopping_threshold", 0.001)
 
                         if eval_loss < (self.best_eval_loss - threshold):
@@ -430,17 +467,26 @@ class OmniTrainer:
                             self.early_stop_patience_counter = 0
                             self.save_checkpoint_best(self.global_step, eval_loss)
                         else:
-                            self.early_stop_patience_counter += 1
-                            logger.info(
-                                f"Validation loss did not improve (best: {self.best_eval_loss:.4f}, current: {eval_loss:.4f}). "
-                                f"Patience: {self.early_stop_patience_counter}/{patience}"
-                            )
-                            if self.early_stop_patience_counter >= patience:
+                            patience_unit = getattr(self.config, "early_stopping_patience_unit", "epoch")
+                            if patience_unit == "eval":
+                                self.early_stop_patience_counter += 1
+                                patience = getattr(self.config, "early_stopping_patience", 15)
                                 logger.info(
-                                    f"Early stopping triggered at step {self.global_step}! "
-                                    f"No improvement for {self.early_stop_patience_counter} consecutive evaluations."
+                                    f"Validation loss did not improve (best: {self.best_eval_loss:.4f}, current: {eval_loss:.4f}). "
+                                    f"Patience: {self.early_stop_patience_counter}/{patience}"
                                 )
-                                break
+                                if self.early_stop_patience_counter >= patience:
+                                    logger.info(
+                                        f"Early stopping triggered at step {self.global_step}! "
+                                        f"No improvement for {self.early_stop_patience_counter} consecutive evaluations."
+                                    )
+                                    break
+                            else:
+                                patience = getattr(self.config, "early_stopping_patience", 3)
+                                logger.info(
+                                    f"Validation loss did not improve (best: {self.best_eval_loss:.4f}, current: {eval_loss:.4f}). "
+                                    f"(Intra-epoch eval; epoch patience: {self.early_stop_patience_counter}/{patience})"
+                                )
 
         # Final Save
         self.save_checkpoint(self.global_step)

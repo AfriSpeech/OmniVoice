@@ -122,7 +122,8 @@ class TrainingConfig:
 
     # Early Stopping
     early_stopping: bool = True
-    early_stopping_patience: int = 15
+    early_stopping_patience: int = 3
+    early_stopping_patience_unit: str = "epoch"
     early_stopping_threshold: float = 0.001
 
     @classmethod

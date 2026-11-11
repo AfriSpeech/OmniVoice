@@ -187,9 +187,20 @@ def load_checkpoint(accelerator: Accelerator, checkpoint_path: str):
     accelerator.load_state(checkpoint_path)
 
     # Try to infer step
-    try:
-        clean_path = os.path.normpath(checkpoint_path)
-        step = int(os.path.basename(clean_path).split("-")[-1])
-        return step
-    except ValueError:
-        return 0
+    clean_path = os.path.normpath(checkpoint_path)
+    base = os.path.basename(clean_path)
+    if base.startswith("checkpoint-"):
+        part = base.split("-")[-1]
+        if part.isdigit():
+            return int(part)
+
+    meta_path = os.path.join(checkpoint_path, "best_meta.json")
+    if os.path.isfile(meta_path):
+        try:
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+                return meta.get("step", 0)
+        except Exception:
+            pass
+
+    return 0

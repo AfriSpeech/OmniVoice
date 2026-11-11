@@ -1,7 +1,7 @@
 {
     "llm_name_or_path": "k2-fsa/OmniVoice",
     "init_from_checkpoint": "k2-fsa/OmniVoice",
-    "resume_from_checkpoint": null,
+    "resume_from_checkpoint": "/mnt/volume_d2wey28/checkpoints/omnivoice_african_trimodal/checkpoint-11000",
 
     "warm_start": true,
     "custom_tokenizer_path": "recipes/africa/tokenizer/expanded_native_tokenizer",
@@ -30,7 +30,7 @@
     "learning_rate": 2e-5,
     "weight_decay": 0.01,
     "max_grad_norm": 1.0,
-    "steps": 270000,
+    "steps": 200000,
     "seed": 42,
     "warmup_type": "ratio",
     "warmup_ratio": 0.03,
@@ -44,12 +44,13 @@
     "attn_implementation": "flex_attention",
 
     "logging_steps": 20,
-    "eval_steps": 250,
-    "save_steps": 1000,
-    "max_eval_batches": 30,
+    "eval_steps": 1000,
+    "save_steps": 2000,
+    "max_eval_batches": 60,
     "keep_last_n_checkpoints": 2,
 
     "early_stopping": true,
-    "early_stopping_patience": 15,
+    "early_stopping_patience": 3,
+    "early_stopping_patience_unit": "epoch",
     "early_stopping_threshold": 0.001
 }
