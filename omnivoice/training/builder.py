@@ -33,6 +33,7 @@ Key functions:
 """
 
 import logging
+import os
 from functools import partial
 from typing import Tuple
 
@@ -60,12 +61,16 @@ def build_model_and_tokenizer(
 
     # 1. Tokenizer
     if getattr(config, "custom_tokenizer_path", None):
-        from transformers import PreTrainedTokenizerFast
-
-        logger.info(f"Loading custom tokenizer from {config.custom_tokenizer_path}...")
-        tokenizer = PreTrainedTokenizerFast(tokenizer_file=config.custom_tokenizer_path)
+        custom_path = _resolve_model_path(config.custom_tokenizer_path)
+        if os.path.isdir(custom_path):
+            logger.info(f"Loading custom directory tokenizer from {custom_path}...")
+            tokenizer = AutoTokenizer.from_pretrained(custom_path)
+        else:
+            from transformers import PreTrainedTokenizerFast
+            logger.info(f"Loading custom tokenizer file from {custom_path}...")
+            tokenizer = PreTrainedTokenizerFast(tokenizer_file=custom_path)
         if tokenizer.pad_token is None:
-            tokenizer.pad_token = "<unk>"
+            tokenizer.pad_token = tokenizer.eos_token or "<unk>"
     else:
         tokenizer_path = (
             config.init_from_checkpoint
@@ -199,6 +204,7 @@ def build_dataloaders(
         use_ipa=getattr(config, "use_ipa", False),
         use_universal_text=getattr(config, "use_universal_text", False),
         use_hybrid_routing=getattr(config, "use_hybrid_routing", False),
+        triplicate_modes=getattr(config, "triplicate_modes", False),
         routing_map_path=getattr(config, "routing_map_path", None),
     )
 

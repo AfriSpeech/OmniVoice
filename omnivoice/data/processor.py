@@ -76,6 +76,7 @@ class OmniVoiceSampleProcessor:
         use_ipa: bool = False,
         use_universal_text: bool = False,
         use_hybrid_routing: bool = False,
+        triplicate_modes: bool = False,
         routing_map_path: Optional[str] = None,
     ):
         self.text_tokenizer = text_tokenizer
@@ -92,13 +93,14 @@ class OmniVoiceSampleProcessor:
         self.use_ipa = use_ipa
         self.use_universal_text = use_universal_text
         self.use_hybrid_routing = use_hybrid_routing
+        self.triplicate_modes = triplicate_modes
         self.routing_map = {}
         if routing_map_path and os.path.exists(routing_map_path):
             import json
             with open(routing_map_path, "r", encoding="utf-8") as f:
                 self.routing_map = json.load(f)
 
-    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, sample: Dict[str, Any], forced_text_mode: Optional[str] = None) -> Dict[str, Any]:
 
         # clean_start_token_idx is only used for prompt denoising training,
         # where the prompt region is augmented with noises and the model
@@ -149,7 +151,26 @@ class OmniVoiceSampleProcessor:
         )  # Style prompt does not compute loss
 
         # --- Text ---
-        if self.use_hybrid_routing:
+        if forced_text_mode == "normal":
+            text = sample["label"].get("text", "")
+        elif forced_text_mode == "universal":
+            raw_t = sample["label"].get("text", "")
+            lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
+            text = to_universal_form(raw_t, str(lang))
+        elif forced_text_mode == "ipa":
+            text = sample["label"].get("transcript") or sample["label"].get("text", "")
+        elif self.triplicate_modes:
+            # Random uniform sampling across the 3 modes if no forced mode
+            mode = random.choice(["normal", "universal", "ipa"])
+            if mode == "universal":
+                raw_t = sample["label"].get("text", "")
+                lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
+                text = to_universal_form(raw_t, str(lang))
+            elif mode == "ipa":
+                text = sample["label"].get("transcript") or sample["label"].get("text", "")
+            else:
+                text = sample["label"].get("text", "")
+        elif self.use_hybrid_routing:
             raw_t = sample["label"].get("text", "")
             lang = str(sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")).lower()
             mode = self.routing_map.get(lang, "normal")

@@ -163,28 +163,39 @@ class PackingIterableDataset(WrappedIterableDataset):
         current_token_count = 0
 
         for raw_sample in self.dataset:
-            # Process the sample using the processor
-            try:
-                processed_sample = self.processor(raw_sample)
-            except Exception as e:
-                logging.warning(f"Error processing sample {raw_sample}: {e}")
-                continue
+            # When triplicate_modes is enabled, pack all 3 text representations (Normal, Universal, IPA)
+            if getattr(self.processor, "triplicate_modes", False):
+                samples_to_pack = []
+                for m in ["normal", "universal", "ipa"]:
+                    try:
+                        p = self.processor(raw_sample, forced_text_mode=m)
+                        samples_to_pack.append(p)
+                    except Exception as e:
+                        logging.warning(f"Error processing sample in mode {m}: {e}")
+            else:
+                try:
+                    p = self.processor(raw_sample)
+                    samples_to_pack = [p]
+                except Exception as e:
+                    logging.warning(f"Error processing sample: {e}")
+                    samples_to_pack = []
 
-            sample_length = processed_sample["length"]
+            for processed_sample in samples_to_pack:
+                sample_length = processed_sample["length"]
 
-            if sample_length > self.batch_tokens:
-                continue
+                if sample_length > self.batch_tokens:
+                    continue
 
-            # Check if adding this sample exceeds the batch token limit
-            if current_token_count + sample_length > self.batch_tokens:
-                # Yield the current batch and start a new one
-                yield current_batch
-                current_batch = []
-                current_token_count = 0
+                # Check if adding this sample exceeds the batch token limit
+                if current_token_count + sample_length > self.batch_tokens:
+                    # Yield the current batch and start a new one
+                    yield current_batch
+                    current_batch = []
+                    current_token_count = 0
 
-            # Add the processed sample to the current batch
-            current_batch.append(processed_sample)
-            current_token_count += sample_length
+                # Add the processed sample to the current batch
+                current_batch.append(processed_sample)
+                current_token_count += sample_length
 
         # Yield the last batch if it's not empty
         if current_batch:
