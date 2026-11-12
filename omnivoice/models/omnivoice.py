@@ -189,7 +189,7 @@ class OmniVoiceConfig(PretrainedConfig):
 
 
 def _resolve_model_path(name_or_path: str) -> str:
-    if os.path.isdir(name_or_path):
+    if os.path.exists(name_or_path):
         return name_or_path
     from huggingface_hub import snapshot_download
 
