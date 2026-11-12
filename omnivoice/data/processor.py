@@ -33,6 +33,8 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
+from omnivoice.utils.lang_map import resolve_african_language
+
 
 @lru_cache(maxsize=128)
 def _get_universal_converter(lang: str):
@@ -79,6 +81,7 @@ class OmniVoiceSampleProcessor:
         triplicate_modes: bool = False,
         dual_modes: bool = False,
         dual_mode_types: Optional[List[str]] = None,
+        split_ortho_ipa: bool = False,
         routing_map_path: Optional[str] = None,
     ):
         self.text_tokenizer = text_tokenizer
@@ -98,6 +101,7 @@ class OmniVoiceSampleProcessor:
         self.triplicate_modes = triplicate_modes
         self.dual_modes = dual_modes
         self.dual_mode_types = dual_mode_types or ["universal", "ipa"]
+        self.split_ortho_ipa = split_ortho_ipa
         self.routing_map = {}
         if routing_map_path and os.path.exists(routing_map_path):
             import json
@@ -133,6 +137,9 @@ class OmniVoiceSampleProcessor:
         # --- Mode Determination ---
         if forced_text_mode:
             mode = forced_text_mode
+        elif getattr(self, "split_ortho_ipa", False):
+            # 50% split per language sample: half IPA with None, half Orthography with ISO-3 language tag
+            mode = "ipa" if (random.uniform(0, 1) < 0.5 and "transcript" in sample["label"]) else "normal"
         elif getattr(self, "dual_modes", False):
             dual_types = getattr(self, "dual_mode_types", ["normal", "ipa"])
             mode = random.choice(dual_types)
@@ -164,11 +171,12 @@ class OmniVoiceSampleProcessor:
         else:
             text = sample["label"].get("text", "")
 
-        # --- Language Tag by Mode (IPA = None; Normal/Universal = Language ID) ---
+        # --- Language Tag by Mode (IPA = None; Normal/Universal = Canonical ISO-3 Code) ---
         if mode == "ipa":
             language = "None"
         elif use_language:
-            language = sample["label"].get("language_id", "None")
+            raw_lang = sample["label"].get("iso") or sample["label"].get("g2p") or sample["label"].get("language_id", "None")
+            language = resolve_african_language(raw_lang)
         else:
             language = "None"
 

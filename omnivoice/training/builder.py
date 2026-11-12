@@ -207,6 +207,7 @@ def build_dataloaders(
         triplicate_modes=getattr(config, "triplicate_modes", False),
         dual_modes=getattr(config, "dual_modes", False),
         dual_mode_types=getattr(config, "dual_mode_types", ["universal", "ipa"]),
+        split_ortho_ipa=getattr(config, "split_ortho_ipa", False),
         routing_map_path=getattr(config, "routing_map_path", None),
     )
 

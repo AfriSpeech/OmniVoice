@@ -700,67 +700,83 @@ def lang_display_name(name: str) -> str:
 
 AFRICAN_LANGUAGE_MAP = {
     # Akan / Twi
-    "twi": "tw", "tw": "tw", "akan": "tw", "ak": "tw",
+    "twi": "twi", "tw": "twi", "akan": "twi", "ak": "twi",
     # Hausa
-    "hausa": "ha", "ha": "ha", "hau": "ha",
+    "hausa": "hau", "ha": "hau", "hau": "hau",
     # Yoruba
-    "yoruba": "yo", "yo": "yo", "yor": "yo",
+    "yoruba": "yor", "yo": "yor", "yor": "yor",
     # Igbo
-    "igbo": "ig", "ig": "ig", "ibo": "ig",
+    "igbo": "ibo", "ig": "ibo", "ibo": "ibo",
     # Swahili
-    "swahili": "sw", "sw": "sw", "kiswahili": "sw", "swa": "sw", "swh": "sw",
+    "swahili": "swh", "sw": "swh", "kiswahili": "swh", "swa": "swh", "swh": "swh",
     # Zulu
-    "zulu": "zu", "zu": "zu", "zul": "zu",
+    "zulu": "zul", "zu": "zul", "zul": "zul",
     # Amharic
-    "amharic": "am", "am": "am", "amh": "am",
+    "amharic": "amh", "am": "amh", "amh": "amh",
     # Luganda
-    "luganda": "lg", "lg": "lg", "lug": "lg", "ganda": "lg",
+    "luganda": "lug", "lg": "lug", "lug": "lug", "ganda": "lug",
     # Kinyarwanda
-    "kinyarwanda": "rw", "rw": "rw", "kin": "rw",
+    "kinyarwanda": "kin", "rw": "kin", "kin": "kin",
     # Somali
-    "somali": "so", "so": "so", "som": "so",
+    "somali": "som", "so": "som", "som": "som",
     # Lingala
-    "lingala": "ln", "ln": "ln", "lin": "ln",
+    "lingala": "lin", "ln": "lin", "lin": "lin",
     # Wolof
-    "wolof": "wo", "wo": "wo", "wol": "wo",
+    "wolof": "wol", "wo": "wol", "wol": "wol",
     # Fula / Fulfulde
-    "fula": "ff", "fulfulde": "ff", "ff": "ff", "fub": "ff", "fui": "ff",
+    "fula": "ful", "fulfulde": "ful", "ff": "ful", "fub": "ful", "fui": "ful",
     # Tigrinya
-    "tigrinya": "ti", "ti": "ti", "tir": "ti",
+    "tigrinya": "tir", "ti": "tir", "tir": "tir",
     # Oromo
-    "oromo": "om", "om": "om", "orm": "om",
+    "oromo": "orm", "om": "orm", "orm": "orm",
     # Shona
-    "shona": "sn", "sn": "sn", "sna": "sn",
+    "shona": "sna", "sn": "sna", "sna": "sna",
     # Xhosa
-    "xhosa": "xh", "xh": "xh", "xho": "xh",
+    "xhosa": "xho", "xh": "xho", "xho": "xho",
     # Afrikaans
-    "afrikaans": "af", "af": "af", "afr": "af",
+    "afrikaans": "afr", "af": "afr", "afr": "afr",
     # Dagbani
     "dagbani": "dag", "dag": "dag",
     # Ga
     "ga": "gaa", "gaa": "gaa",
     # Ewe
-    "ewe": "ee", "ee": "ee",
+    "ewe": "ewe", "ee": "ewe",
     # English
-    "english": "en", "en": "en", "eng": "en",
+    "english": "eng", "en": "eng", "eng": "eng",
     # Tsonga
-    "tsonga": "ts", "tso": "ts",
+    "tsonga": "tso", "ts": "tso",
     # Swati
-    "swati": "ss", "ssw": "ss",
+    "swati": "ssw", "ss": "ssw",
     # Rundi
-    "rundi": "rn", "run": "rn",
+    "rundi": "run", "rn": "run",
     # Malagasy
-    "malagasy": "mg", "mlg": "mg",
+    "malagasy": "mlg", "mg": "mlg",
     # Sango
-    "sango": "sg", "sag": "sg",
+    "sango": "sag", "sg": "sag",
     # Venda
-    "venda": "ve", "ven": "ve",
+    "venda": "ven", "ve": "ven",
 }
+
+# Update global mappings with African ISO 639-3 canonical codes
+LANG_NAME_TO_ID.update(AFRICAN_LANGUAGE_MAP)
+LANG_IDS.update(AFRICAN_LANGUAGE_MAP.values())
+LANG_IDS.update(AFRICAN_LANGUAGE_MAP.keys())
 
 
 def resolve_african_language(lang: str) -> str:
-    """Map African language names/ISO codes to canonical OmniVoice language tags."""
+    """Map African language names/ISO codes to canonical ISO 639-3 codes using afriso."""
     if not lang:
-        return lang
-    key = lang.lower().strip()
-    return AFRICAN_LANGUAGE_MAP.get(key, key)
+        return "None"
+    key = str(lang).lower().strip()
+    if key in ("none", "null"):
+        return "None"
+    if key in AFRICAN_LANGUAGE_MAP:
+        return AFRICAN_LANGUAGE_MAP[key]
+    try:
+        import afriso
+        iso = afriso.to_iso(key)
+        if iso:
+            return iso
+    except Exception:
+        pass
+    return key
