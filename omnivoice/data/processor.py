@@ -78,6 +78,7 @@ class OmniVoiceSampleProcessor:
         use_hybrid_routing: bool = False,
         triplicate_modes: bool = False,
         dual_modes: bool = False,
+        dual_mode_types: Optional[List[str]] = None,
         routing_map_path: Optional[str] = None,
     ):
         self.text_tokenizer = text_tokenizer
@@ -96,6 +97,7 @@ class OmniVoiceSampleProcessor:
         self.use_hybrid_routing = use_hybrid_routing
         self.triplicate_modes = triplicate_modes
         self.dual_modes = dual_modes
+        self.dual_mode_types = dual_mode_types or ["universal", "ipa"]
         self.routing_map = {}
         if routing_map_path and os.path.exists(routing_map_path):
             import json
@@ -121,7 +123,7 @@ class OmniVoiceSampleProcessor:
         else:
             prompt_ratio = random.uniform(*self.prompt_ratio_range)
             drop_text = False
-            use_language = random.uniform(0, 1) < self.language_ratio
+            use_language = (random.uniform(0, 1) < self.language_ratio) if self.language_ratio > 0.0 else False
             use_instruct = random.uniform(0, 1) < self.instruct_ratio
             if use_instruct and random.uniform(0, 1) < self.only_instruct_ratio:
                 prompt_ratio = 0.0
@@ -173,11 +175,14 @@ class OmniVoiceSampleProcessor:
             else:
                 text = sample["label"].get("text", "")
         elif getattr(self, "dual_modes", False):
-            mode = random.choice(["normal", "universal"])
+            dual_types = getattr(self, "dual_mode_types", ["universal", "ipa"])
+            mode = random.choice(dual_types)
             if mode == "universal":
                 raw_t = sample["label"].get("text", "")
                 lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
                 text = to_universal_form(raw_t, str(lang))
+            elif mode == "ipa":
+                text = sample["label"].get("transcript") or sample["label"].get("text", "")
             else:
                 text = sample["label"].get("text", "")
         elif self.use_hybrid_routing:

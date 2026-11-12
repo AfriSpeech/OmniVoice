@@ -206,6 +206,7 @@ def build_dataloaders(
         use_hybrid_routing=getattr(config, "use_hybrid_routing", False),
         triplicate_modes=getattr(config, "triplicate_modes", False),
         dual_modes=getattr(config, "dual_modes", False),
+        dual_mode_types=getattr(config, "dual_mode_types", ["universal", "ipa"]),
         routing_map_path=getattr(config, "routing_map_path", None),
     )
 
