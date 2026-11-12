@@ -130,17 +130,55 @@ class OmniVoiceSampleProcessor:
 
         mask_ratio = random.uniform(*self.mask_ratio_range)
 
-        # --- Style ---
-        style = ""
-        if use_language:
+        # --- Mode Determination ---
+        if forced_text_mode:
+            mode = forced_text_mode
+        elif getattr(self, "dual_modes", False):
+            dual_types = getattr(self, "dual_mode_types", ["normal", "ipa"])
+            mode = random.choice(dual_types)
+        elif self.triplicate_modes:
+            mode = random.choice(["normal", "universal", "ipa"])
+        elif self.use_hybrid_routing:
+            raw_t = sample["label"].get("text", "")
+            lang_check = str(sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")).lower()
+            mode = self.routing_map.get(lang_check, "normal")
+        elif self.use_universal_text:
+            mode = "universal"
+        elif self.use_ipa and "transcript" in sample["label"]:
+            mode = "ipa"
+        else:
+            mode = "normal"
+
+        # --- Text Extraction by Mode ---
+        if mode == "normal":
+            if "text_pinyin" in sample["label"] and random.uniform(0, 1) < self.use_pinyin_ratio:
+                text = sample["label"]["text_pinyin"]
+            else:
+                text = sample["label"].get("text", "")
+        elif mode == "universal":
+            raw_t = sample["label"].get("text", "")
+            lang_id = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
+            text = to_universal_form(raw_t, str(lang_id))
+        elif mode == "ipa":
+            text = sample["label"].get("transcript") or sample["label"].get("text", "")
+        else:
+            text = sample["label"].get("text", "")
+
+        # --- Language Tag by Mode (IPA = None; Normal/Universal = Language ID) ---
+        if mode == "ipa":
+            language = "None"
+        elif use_language:
             language = sample["label"].get("language_id", "None")
         else:
             language = "None"
+
         if use_instruct:
             instruct = sample["label"].get("instruct", "None")
         else:
             instruct = "None"
 
+        # --- Style ---
+        style = ""
         if "clean_start_token_idx" in sample["label"]:
             style += "<|denoise|>"
 
@@ -154,58 +192,6 @@ class OmniVoiceSampleProcessor:
             style_inputs.shape, -100
         )  # Style prompt does not compute loss
 
-        # --- Text ---
-        if forced_text_mode == "normal":
-            text = sample["label"].get("text", "")
-        elif forced_text_mode == "universal":
-            raw_t = sample["label"].get("text", "")
-            lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
-            text = to_universal_form(raw_t, str(lang))
-        elif forced_text_mode == "ipa":
-            text = sample["label"].get("transcript") or sample["label"].get("text", "")
-        elif self.triplicate_modes:
-            # Random uniform sampling across the 3 modes if no forced mode
-            mode = random.choice(["normal", "universal", "ipa"])
-            if mode == "universal":
-                raw_t = sample["label"].get("text", "")
-                lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
-                text = to_universal_form(raw_t, str(lang))
-            elif mode == "ipa":
-                text = sample["label"].get("transcript") or sample["label"].get("text", "")
-            else:
-                text = sample["label"].get("text", "")
-        elif getattr(self, "dual_modes", False):
-            dual_types = getattr(self, "dual_mode_types", ["universal", "ipa"])
-            mode = random.choice(dual_types)
-            if mode == "universal":
-                raw_t = sample["label"].get("text", "")
-                lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
-                text = to_universal_form(raw_t, str(lang))
-            elif mode == "ipa":
-                text = sample["label"].get("transcript") or sample["label"].get("text", "")
-            else:
-                text = sample["label"].get("text", "")
-        elif self.use_hybrid_routing:
-            raw_t = sample["label"].get("text", "")
-            lang = str(sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")).lower()
-            mode = self.routing_map.get(lang, "normal")
-            if mode == "universal":
-                text = to_universal_form(raw_t, lang)
-            else:
-                text = raw_t
-        elif self.use_universal_text:
-            raw_t = sample["label"].get("text", "")
-            lang = sample["label"].get("g2p") or sample["label"].get("iso") or sample["label"].get("language_id", "")
-            text = to_universal_form(raw_t, str(lang))
-        elif self.use_ipa and "transcript" in sample["label"]:
-            text = sample["label"]["transcript"]
-        elif (
-            "text_pinyin" in sample["label"]
-            and random.uniform(0, 1) < self.use_pinyin_ratio
-        ):
-            text = sample["label"]["text_pinyin"]
-        else:
-            text = sample["label"]["text"]
         text_inputs = self.text_tokenizer(
             f"<|text_start|>{text}<|text_end|>", return_tensors="pt"
         ).input_ids.repeat(self.num_channels, 1)
