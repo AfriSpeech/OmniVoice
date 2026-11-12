@@ -16,7 +16,7 @@
     "drop_cond_ratio": 0.1,
     "prompt_ratio_range": [0.0, 0.3],
     "mask_ratio_range": [0.0, 1.0],
-    "language_ratio": 0.0,
+    "language_ratio": 0.9,
     "use_pinyin_ratio": 0.0,
     "use_ipa": false,
     "use_universal_text": false,
