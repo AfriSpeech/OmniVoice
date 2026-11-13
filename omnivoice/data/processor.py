@@ -171,10 +171,8 @@ class OmniVoiceSampleProcessor:
         else:
             text = sample["label"].get("text", "")
 
-        # --- Language Tag by Mode (IPA = None; Normal/Universal = Canonical ISO-3 Code) ---
-        if mode == "ipa":
-            language = "None"
-        elif use_language:
+        # --- Language Tag (100% canonical ISO-3 language ID) ---
+        if use_language:
             raw_lang = sample["label"].get("iso") or sample["label"].get("g2p") or sample["label"].get("language_id", "None")
             language = resolve_african_language(raw_lang)
         else:
@@ -200,8 +198,14 @@ class OmniVoiceSampleProcessor:
             style_inputs.shape, -100
         )  # Style prompt does not compute loss
 
+        # --- Text Prompt (<|ipa_start|> for IPA, <|text_start|> for orthography) ---
+        if mode == "ipa":
+            text_prompt = f"<|ipa_start|>{text}<|ipa_end|>"
+        else:
+            text_prompt = f"<|text_start|>{text}<|text_end|>"
+
         text_inputs = self.text_tokenizer(
-            f"<|text_start|>{text}<|text_end|>", return_tensors="pt"
+            text_prompt, return_tensors="pt"
         ).input_ids.repeat(self.num_channels, 1)
         text_labels = torch.full(text_inputs.shape, -100)  # Text does not compute loss
 

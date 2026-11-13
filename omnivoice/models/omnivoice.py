@@ -1133,9 +1133,28 @@ class OmniVoice(PreTrainedModel):
             self.device
         )  # [1, C, N1]
 
-        # Build text tokens
+        # Build text tokens (<|ipa_start|> for IPA, <|text_start|> for text)
         full_text = _combine_text(ref_text=ref_text, text=text)
-        wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
+        is_ipa_mode = (
+            getattr(self.config, "use_ipa", False)
+            or "<|ipa_start|>" in full_text
+            or (full_text.startswith("[") and full_text.endswith("]"))
+        )
+        if is_ipa_mode:
+            clean_ipa = (
+                full_text.strip("[]").strip()
+                if (full_text.startswith("[") and full_text.endswith("]"))
+                else full_text
+            )
+            if "<|ipa_start|>" not in clean_ipa:
+                wrapped_text = f"<|ipa_start|>{clean_ipa}<|ipa_end|>"
+            else:
+                wrapped_text = clean_ipa
+        else:
+            if "<|text_start|>" not in full_text and "<|ipa_start|>" not in full_text:
+                wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
+            else:
+                wrapped_text = full_text
         text_tokens = (
             _tokenize_with_nonverbal_tags(wrapped_text, self.text_tokenizer)
             .repeat(self.config.num_audio_codebook, 1)
