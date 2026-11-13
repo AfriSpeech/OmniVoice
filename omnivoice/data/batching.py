@@ -166,8 +166,8 @@ class PackingIterableDataset(WrappedIterableDataset):
             # Check packing modes (triplicate: normal, universal, ipa; dual: normal, universal)
             if getattr(self.processor, "triplicate_modes", False):
                 modes = ["normal", "universal", "ipa"]
-            elif getattr(self.processor, "dual_modes", False) and not getattr(self.processor, "split_ortho_ipa", False):
-                modes = getattr(self.processor, "dual_mode_types", ["universal", "ipa"])
+            elif getattr(self.processor, "dual_modes", False):
+                modes = getattr(self.processor, "dual_mode_types", ["normal", "ipa"])
             else:
                 modes = None
 

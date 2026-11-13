@@ -90,8 +90,6 @@ def build_model_and_tokenizer(
         "<|instruct_end|>",
         "<|text_start|>",
         "<|text_end|>",
-        "<|ipa_start|>",
-        "<|ipa_end|>",
     ]
 
     tokens_to_add = [t for t in new_tokens if t not in tokenizer.get_vocab()]

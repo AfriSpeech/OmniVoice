@@ -171,12 +171,9 @@ class OmniVoiceSampleProcessor:
         else:
             text = sample["label"].get("text", "")
 
-        # --- Language Tag (100% canonical ISO-3 language ID) ---
-        if use_language:
-            raw_lang = sample["label"].get("iso") or sample["label"].get("g2p") or sample["label"].get("language_id", "None")
-            language = resolve_african_language(raw_lang)
-        else:
-            language = "None"
+        # --- Language Tag (100% canonical ISO-3 language ID, no None tags) ---
+        raw_lang = sample["label"].get("iso") or sample["label"].get("g2p") or sample["label"].get("language_id", "None")
+        language = resolve_african_language(raw_lang)
 
         if use_instruct:
             instruct = sample["label"].get("instruct", "None")
@@ -198,11 +195,8 @@ class OmniVoiceSampleProcessor:
             style_inputs.shape, -100
         )  # Style prompt does not compute loss
 
-        # --- Text Prompt (<|ipa_start|> for IPA, <|text_start|> for orthography) ---
-        if mode == "ipa":
-            text_prompt = f"<|ipa_start|>{text}<|ipa_end|>"
-        else:
-            text_prompt = f"<|text_start|>{text}<|text_end|>"
+        # --- Text Prompt: Default <|text_start|>...<|text_end|> for all text ---
+        text_prompt = f"<|text_start|>{text}<|text_end|>"
 
         text_inputs = self.text_tokenizer(
             text_prompt, return_tensors="pt"
