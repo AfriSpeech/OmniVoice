@@ -1,12 +1,12 @@
 #!/bin/bash
-# Runner script for detached OmniVoice African Dual-Modal Training (Original Tokenizer + Dual Normal & Universal Latin Text)
+# Runner script for detached OmniVoice African Dual-Modal Training (Original Tokenizer + Dual Universal Latin & IPA Text)
 set -e
 
 cd /mnt/volume_d2wey28/projects/omnivoice
 source .venv/bin/activate
 export PYTHONPATH="/mnt/volume_d2wey28/projects/omnivoice:${PYTHONPATH:-}"
 
-echo "[$(date "+%Y-%m-%d %H:%M:%S")] Starting OmniVoice African Dual-Modal Training (Normal + Universal text, Original Tokenizer)..."
+echo "[$(date "+%Y-%m-%d %H:%M:%S")] Starting OmniVoice African Dual-Modal Training (Universal + IPA text, Original Tokenizer)..."
 
 accelerate launch \
     --gpu_ids "0" \
